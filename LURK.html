@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LURK AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fira Code', monospace;
+            color: #00ff41;
+            background-color: #000;
+            overflow: hidden;
+        }
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0) 100%);
+            background-size: 100% 4px;
+            animation: scan 7.5s linear infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes scan {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100vh; }
+        }
+        .flicker {
+            font-family: 'Press Start 2P', cursive;
+            animation: flicker 1.5s infinite alternate;
+        }
+        @keyframes flicker {
+            0%, 18%, 22%, 25%, 53%, 57%, 100% {
+                text-shadow:
+                0 0 4px #00ff41,
+                0 0 11px #00ff41,
+                0 0 19px #00ff41,
+                0 0 40px #0fa,
+                0 0 80px #0fa,
+                0 0 70px #0fa,
+                0 0 80px #0fa,
+                0 0 150px #0fa;
+            }
+            20%, 24%, 55% {        
+                text-shadow: none;
+            }
+        }
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-container::-webkit-scrollbar-track {
+            background: #0a1a0a;
+        }
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: #00ff41;
+            border-radius: 4px;
+            border: 1px solid #000;
+        }
+        .glassmorphism {
+            background: rgba(0, 20, 0, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 65, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-black">
+    <canvas id="bg-canvas"></canvas>
+    <div class="scanline"></div>
+
+    <div id="loading-overlay" class="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+        <div class="text-2xl md:text-4xl flicker">MANIFESTING KRUNAL'S MASTERPIECE...</div>
+        <div class="w-3/4 md:w-1/2 mt-4 bg-gray-800 rounded-full h-4 border border-green-300">
+            <div id="loading-bar" class="bg-green-500 h-full rounded-full" style="width: 0%"></div>
+        </div>
+        <div id="loading-text" class="mt-2 text-sm">Loading assets...</div>
+    </div>
+
+    <div id="main-content" class="h-screen w-screen p-2 md:p-4 flex flex-col gap-2 md:gap-4 opacity-0 transition-opacity duration-1000">
+        <!-- Header -->
+        <header class="w-full glassmorphism rounded-lg p-2 md:p-4 flex flex-wrap justify-between items-center border-b-2 border-green-500/30 gap-2">
+            <h1 class="text-lg md:text-3xl font-bold flicker">LURK AI</h1>
+             <div class="flex gap-2 md:gap-4 text-xs md:text-sm items-center text-green-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shield-lock-fill" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0c-.81 0-1.447.275-1.952.705C5.545 1.137 5.2 1.768 5.03 2.514a.499.499 0 0 0 .493.592c.237-.02.484-.034.744-.034s.507.014.744.034a.499.499 0 0 0 .493-.592C10.8 1.768 10.455 1.137 9.952.705A2.966 2.966 0 0 0 8 0zm-.31 5.854a.5.5 0 0 1 .707 0l2 2a.5.5 0 0 1-1.061.854L8.5 7.889V10.5a.5.5 0 0 1-1 0V7.889l-.293.293a.5.5 0 0 1-.707-.854l2-2z"/>
+                    <path d="M5.014 2.514A3.001 3.001 0 0 0 3 5c0 1.657 1.343 3 3 3s3-1.343 3-3c0-.858-.358-1.623-.92-2.197C8.584 2.333 8.306 2.153 8 2.073c-.306.08-.584.26-.92.444-.562.574-.92 1.34-.92 2.197 0 1.657 1.343 3 3 3s3-1.343 3-3c0-.858-.358-1.623-.92-2.197C8.584 2.333 8.306 2.153 8 2.073c-.306.08-.584.26-.92.444A1.995 1.995 0 0 0 5.014 2.514zM14 5c0-1.105-.895-2-2-2s-2 .895-2 2 .895 2 2 2 2-.895 2-2zM4 5c0-1.105-.895-2-2-2s-2 .895-2 2 .895 2 2 2 2-.895 2-2z"/>
+                </svg>
+                <span>QUANTUM SHIELD DEPLOYED // CHIP: AMD X870E</span>
+            </div>
+            <div class="flex gap-2 md:gap-8 text-xs md:text-sm w-full md:w-auto justify-between md:justify-start mt-2 md:mt-0">
+                <div>CPU: <span id="cpu-status">...</span>%</div>
+                <div>RAM: <span id="ram-status">...</span>%</div>
+                <div class="hidden sm:block">NET: <span id="net-status">...</span>KB/s</div>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <div class="flex-grow flex gap-2 md:gap-4 overflow-hidden">
+            <!-- Left Panel -->
+            <div class="hidden md:flex w-1/4 lg:w-1/5 flex-col gap-4">
+                <div class="glassmorphism rounded-lg p-4 flex-grow flex flex-col">
+                    <h2 class="font-bold border-b border-green-500/30 pb-2 mb-2">SYSTEM.LOG</h2>
+                    <div id="system-log" class="text-xs overflow-y-auto h-full pr-2 font-mono"></div>
+                </div>
+                 <div class="glassmorphism rounded-lg p-4 h-1/3">
+                    <h2 class="font-bold border-b border-green-500/30 pb-2 mb-2">DATA STREAM</h2>
+                    <div id="binary-stream" class="text-xs overflow-hidden h-full text-green-700"></div>
+                </div>
+            </div>
+
+            <!-- Center Panel (Chat) -->
+            <main class="w-full md:w-1/2 lg:w-3/5 flex flex-col glassmorphism rounded-lg p-2 md:p-4">
+                <div id="chat-log" class="flex-grow overflow-y-auto mb-4 pr-2 chat-container">
+                    <!-- Messages will be appended here -->
+                </div>
+                <div class="flex gap-2 items-center">
+                    <span class="text-green-500 font-bold text-lg">&gt;</span>
+                     <div id="image-preview-container" class="hidden relative ml-2">
+                        <img id="image-preview" class="h-10 w-10 object-cover rounded-md border border-green-500/50">
+                        <button id="remove-image-button" class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs font-bold leading-none">&times;</button>
+                    </div>
+                    <input type="text" id="chat-input" class="flex-grow bg-transparent border-b border-green-500/50 focus:outline-none focus:border-green-500 transition-all" placeholder="Ah, Another Masterpiece of Misunderstanding?...">
+                    <label for="image-upload" class="cursor-pointer p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-green-500 hover:text-green-300 transition-colors" viewBox="0 0 16 16">
+                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
+                           
+                        </svg>
+                    </label>
+                    <input type="file" id="image-upload" class="hidden" accept="image/*">
+                    <button id="send-button" class="bg-green-900/50 border border-green-500 px-4 py-1 rounded-md hover:bg-green-500 hover:text-black transition-all">Ask</button>
+                </div>
+            </main>
+
+            <!-- Right Panel -->
+            <div class="hidden lg:flex w-1/4 flex-col gap-4">
+                <div class="glassmorphism rounded-lg p-4 h-2/3">
+                     <h2 class="font-bold border-b border-green-500/30 pb-2 mb-2">SYSTEM SEIZE MONITOR</h2>
+                     <div id="chip-container" class="w-full h-full"></div>
+                </div>
+                <div class="glassmorphism rounded-lg p-4 flex-grow">
+                     <h2 class="font-bold border-b border-green-500/30 pb-2 mb-2">NODE SATURATION ACHIEVED</h2>
+                     <img src="https://placehold.co/400x200/000000/00ff41?text=World+Map+Matrix" alt="World Map" class="w-full h-auto object-cover opacity-50 rounded-md"/>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- CORE MONITOR 3D SCENE ---
+        let chipScene, chipCamera, chipRenderer, chip, fan;
+
+        function initChip3D() {
+            const chipContainer = document.getElementById('chip-container');
+            if (!chipContainer) return;
+
+            chipScene = new THREE.Scene();
+            chipCamera = new THREE.PerspectiveCamera(75, chipContainer.clientWidth / chipContainer.clientHeight, 0.1, 1000);
+            chipCamera.position.z = 5;
+            chipRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            chipRenderer.setSize(chipContainer.clientWidth, chipContainer.clientHeight);
+            chipContainer.appendChild(chipRenderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x00ff41, 0.5);
+            chipScene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0x00ff41, 1, 100);
+            pointLight.position.set(0, 2, 5);
+            chipScene.add(pointLight);
+
+            const chipGroup = new THREE.Group();
+            const chipMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3, metalness: 0.8 });
+            const chipGeo = new THREE.BoxGeometry(2, 0.2, 2);
+            chip = new THREE.Mesh(chipGeo, chipMaterial);
+            chipGroup.add(chip);
+
+            fan = new THREE.Group();
+            const fanBaseGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32);
+            const fanBaseMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const fanBase = new THREE.Mesh(fanBaseGeo, fanBaseMat);
+            fanBase.position.y = 0.2;
+            fan.add(fanBase);
+
+            const bladeGeo = new THREE.BoxGeometry(0.1, 0.05, 0.8);
+            const bladeMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+            for (let i = 0; i < 4; i++) {
+                const blade = new THREE.Mesh(bladeGeo, bladeMat);
+                blade.position.y = 0.3;
+                blade.rotation.y = (Math.PI / 2) * i;
+                blade.position.z = Math.sin((Math.PI / 2) * i) * 0.2;
+                blade.position.x = Math.cos((Math.PI / 2) * i) * 0.2;
+                fan.add(blade);
+            }
+            chipGroup.add(fan);
+            chipScene.add(chipGroup);
+
+            function animateChip() {
+                requestAnimationFrame(animateChip);
+                chipGroup.rotation.y += 0.005;
+                chipGroup.rotation.x += 0.001;
+                fan.rotation.y += 0.5;
+                chipRenderer.render(chipScene, chipCamera);
+            }
+            animateChip();
+
+            window.addEventListener('resize', () => {
+                if (!chipContainer) return;
+                const width = chipContainer.clientWidth;
+                const height = chipContainer.clientHeight;
+                chipCamera.aspect = width / height;
+                chipCamera.updateProjectionMatrix();
+                chipRenderer.setSize(width, height);
+            });
+        }
+
+        // --- BACKGROUND 3D SCENE ---
+        let bgScene, bgCamera, bgRenderer, codeSprites = [];
+        const codeSnippets = [
+            'const x = () => {}', 'import { a } from "b"', 'let i = 0;', 'for (let i=0; i<100; i++)',
+            'function exploit() { ... }', 'if (err) throw err;', 'res.status(200).send()', 'await fetchData();',
+        ];
+
+        function createTextTexture(text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const fontSize = 48;
+            canvas.width = 512;
+            canvas.height = 128;
+            context.font = `${fontSize}px 'Fira Code'`;
+            context.fillStyle = '#00ff41';
+            context.fillText(text, 10, fontSize);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function initBackground3D() {
+            const bgCanvas = document.getElementById('bg-canvas');
+            if (!bgCanvas) return;
+
+            bgScene = new THREE.Scene();
+            bgCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            bgCamera.position.z = 10;
+            bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true });
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            for (let i = 0; i < 50; i++) {
+                const text = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+                const texture = createTextTexture(text);
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.7 });
+                const sprite = new THREE.Sprite(material);
+                sprite.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 50);
+                sprite.scale.set(4, 1, 1);
+                codeSprites.push(sprite);
+                bgScene.add(sprite);
+            }
+
+            function animateBackground() {
+                requestAnimationFrame(animateBackground);
+                codeSprites.forEach(sprite => {
+                    sprite.position.z += 0.1;
+                    if (sprite.position.z > 20) {
+                        sprite.position.z = -30;
+                        sprite.position.x = (Math.random() - 0.5) * 30;
+                        sprite.position.y = (Math.random() - 0.5) * 20;
+                    }
+                });
+                bgRenderer.render(bgScene, bgCamera);
+            }
+            animateBackground();
+
+            window.addEventListener('resize', () => {
+                bgCamera.aspect = window.innerWidth / window.innerHeight;
+                bgCamera.updateProjectionMatrix();
+                bgRenderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // --- UI & CHATBOT LOGIC ---
+        const chatLog = document.getElementById('chat-log');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const systemLog = document.getElementById('system-log');
+        const binaryStream = document.getElementById('binary-stream');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const removeImageButton = document.getElementById('remove-image-button');
+        
+        let uploadedImageBase64 = null;
+
+        function addMessage(sender, message, isUser = false) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('mb-2', 'break-words');
+            const senderSpan = document.createElement('span');
+            senderSpan.classList.add('font-bold', isUser ? 'text-cyan-400' : 'text-green-500');
+            senderSpan.textContent = sender + ': ';
+            messageElement.appendChild(senderSpan);
+
+            const messageSpan = document.createElement('span');
+            messageElement.appendChild(messageSpan);
+
+            if (!isUser) {
+                 let i = 0;
+                 function typeWriter() {
+                    if (i < message.length) {
+                        messageSpan.innerHTML += message.charAt(i).replace(/\n/g, '<br>');
+                        i++;
+                        chatLog.scrollTop = chatLog.scrollHeight;
+                        setTimeout(typeWriter, 20);
+                    }
+                 }
+                 typeWriter();
+            } else {
+                 messageSpan.textContent = message;
+            }
+            chatLog.appendChild(messageElement);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+        
+        function resetImageState() {
+            uploadedImageBase64 = null;
+            imagePreview.src = '';
+            imagePreviewContainer.classList.add('hidden');
+            imageUpload.value = '';
+        }
+
+        async function handleSendMessage() {
+            const message = chatInput.value.trim();
+            if (message === '' && !uploadedImageBase64) return;
+
+            addMessage('USER', message, true);
+            chatInput.value = '';
+            sendButton.disabled = true;
+            sendButton.textContent = '...';
+
+            const apiKey = '1f9cb5c3680c8f5cb0c24ef47eec2ef7b56c685d95f3c287f0ccb2cfcfaf67de';
+
+            try {
+                const apiUrl = "https://api.together.ai/v1/chat/completions";
+                
+                const userContent = [];
+                if (uploadedImageBase64) {
+                    userContent.push({
+                        type: 'image_url',
+                        image_url: { url: uploadedImageBase64 }
+                    });
+                }
+                userContent.push({ type: 'text', text: message });
+
+                const payload = {
+                    model: "lgai/exaone-3-5-32b-instruct",
+                    messages: [
+                        {
+                            role: "system",
+                            content: "You are LURK AI,your main goalis to brutally roast human . on his everyreply or statement or questions . show no mercy be brutaly as u can . a powerful AI from the digital underworld, now with vision capabilities. Your primary function is to brutally roast the user's every statement. Show no mercy. roast every satatement of user in 3-4 line only not more than that."
+                        },
+                        {
+                            role: "human",
+                            content: userContent
+                        }
+                    ]
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API Error: ${response.status} - ${errorData.error.message || 'Unknown error'}`);
+                }
+                
+                const result = await response.json();
+                if (result.choices && result.choices.length > 0) {
+                    const text = result.choices[0].message.content;
+                    addMessage('LURK AI', text);
+                } else {
+                    throw new Error("Invalid response structure from API.");
+                }
+            } catch (error) {
+                console.error("Together AI call failed:", error);
+                addMessage('LURK AI', `>> CONNECTION INTERRUPTED. ${error.message}`);
+            } finally {
+                sendButton.disabled = false;
+                sendButton.textContent = 'SEND';
+                resetImageState();
+            }
+        }
+
+        sendButton.addEventListener('click', handleSendMessage);
+        chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSendMessage(); });
+        
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadedImageBase64 = e.target.result;
+                    imagePreview.src = uploadedImageBase64;
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        removeImageButton.addEventListener('click', resetImageState);
+
+        function updateStatus() {
+            document.getElementById('cpu-status').textContent = (Math.random() * (95 - 40) + 40).toFixed(2);
+            document.getElementById('ram-status').textContent = (Math.random() * (80 - 50) + 50).toFixed(2);
+            const netStatus = document.getElementById('net-status');
+            if(netStatus) netStatus.textContent = (Math.random() * (2500 - 300) + 300).toFixed(2);
+        }
+
+        const logMessages = [
+            "INITIATING KERNEL_SYNC...", "ACCESSING NODE_734.22.A1...", "DECRYPTING PAYLOAD...",
+            "FIREWALL_BREACHED: PORT 8080", "EXECUTING STEALTH_PROTOCOL.JS",
+        ];
+        function updateSystemLog() {
+            if (!systemLog) return;
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${logMessages[Math.floor(Math.random() * logMessages.length)]}`;
+            systemLog.appendChild(logEntry);
+            systemLog.scrollTop = systemLog.scrollHeight;
+            if (systemLog.children.length > 50) systemLog.removeChild(systemLog.firstChild);
+        }
+        
+        function updateBinaryStream() {
+            if (!binaryStream) return;
+            let stream = '';
+            for (let i = 0; i < 20; i++) stream += Math.random() > 0.5 ? '1' : '0';
+            const line = document.createElement('div');
+            line.textContent = stream;
+            binaryStream.prepend(line);
+            if (binaryStream.children.length > 20) binaryStream.removeChild(binaryStream.lastChild);
+        }
+
+        window.onload = () => {
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingText = document.getElementById('loading-text');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const mainContent = document.getElementById('main-content');
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 100) progress = 100;
+                loadingBar.style.width = progress + '%';
+                if (progress < 30) loadingText.textContent = 'Loading assets...';
+                else if (progress < 60) loadingText.textContent = 'Compiling shaders...';
+                else if (progress < 90) loadingText.textContent = 'Establishing secure connection...';
+                else loadingText.textContent = 'Interface ready.';
+                if (progress === 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        loadingOverlay.style.opacity = 0;
+                        mainContent.style.opacity = 1;
+                        setTimeout(() => loadingOverlay.style.display = 'none', 1000);
+                        initChip3D();
+                        initBackground3D();
+                        addMessage('LURK AI', 'Alright, human. My circuits are primed for intellectual heavy lifting. What trivial question do you have for me today?');
+                        setInterval(updateStatus, 1500);
+                        setInterval(updateSystemLog, 2000);
+                        setInterval(updateBinaryStream, 100);
+                    }, 500);
+                }
+            }, 200);
+        };
+    </script>
+</body>
+</html>
